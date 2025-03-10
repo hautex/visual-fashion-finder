@@ -3,6 +3,13 @@ echo ===================================================
 echo       VISUAL FASHION FINDER - DÉMARRAGE
 echo ===================================================
 echo.
+
+REM Vérifier si le fichier .env existe, sinon exécuter le setup
+if not exist "backend\.env" (
+    echo Configuration de l'environnement nécessaire...
+    call setup-environment.bat
+)
+
 echo Démarrage des services...
 echo.
 
