@@ -47,6 +47,7 @@ export default function Home() {
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [debug, setDebug] = useState<any>(null);
   const [dropActive, setDropActive] = useState<boolean>(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -61,6 +62,7 @@ export default function Home() {
       // Reset states
       setResults([]);
       setError(null);
+      setDebug(null);
     }
   }, []);
 
@@ -84,18 +86,24 @@ export default function Home() {
 
     setLoading(true);
     setError(null);
+    setDebug(null);
 
     try {
+      console.log('Préparation de la recherche avec le fichier:', file.name);
+      
       // Create form data to send the file
       const formData = new FormData();
       formData.append('image', file);
 
+      console.log('Envoi de la requête au backend...');
       // Note: In a real implementation, you'd use your actual API endpoint
       const response = await axios.post('http://localhost:3001/api/search', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
+
+      console.log('Réponse reçue du backend:', response.data);
 
       if (response.data && response.data.products) {
         setResults(response.data.products);
@@ -109,10 +117,33 @@ export default function Home() {
         }, 100);
       } else {
         setError('Aucun résultat trouvé');
+        setDebug(response.data);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error searching products:', err);
       setError('Une erreur est survenue lors de la recherche. Vérifiez que tous les services sont bien démarrés.');
+      
+      // Capture detailed error info for debugging
+      if (err.response) {
+        console.error('Error details:', err.response.data);
+        setDebug({
+          status: err.response.status,
+          statusText: err.response.statusText,
+          data: err.response.data
+        });
+      } else if (err.request) {
+        console.error('No response received');
+        setDebug({
+          message: 'Aucune réponse du serveur - vérifiez que le backend est démarré',
+          request: 'Request sent but no response'
+        });
+      } else {
+        console.error('Error setting up request');
+        setDebug({
+          message: 'Erreur lors de la configuration de la requête',
+          error: err.message
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -214,7 +245,25 @@ export default function Home() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>{error}</span>
+                <div>
+                  <span>{error}</span>
+                  
+                  {debug && (
+                    <div className="mt-3 text-xs text-gray-700 bg-gray-100 p-2 rounded overflow-auto max-h-40">
+                      <p className="font-semibold mb-1">Informations de débogage:</p>
+                      <pre>{JSON.stringify(debug, null, 2)}</pre>
+                    </div>
+                  )}
+                  
+                  <div className="mt-2 text-sm">
+                    <p>Vérifiez que:</p>
+                    <ul className="list-disc list-inside mt-1 ml-2 space-y-1">
+                      <li>Tous les services (frontend, backend, ml-service) sont démarrés</li>
+                      <li>Le fichier .env contient les clés API Google</li>
+                      <li>L'image est un format valide (JPG, PNG)</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -242,6 +291,10 @@ export default function Home() {
                       src={product.imageUrl} 
                       alt={product.name} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://via.placeholder.com/300x400?text=Image+Non+Disponible';
+                      }}
                     />
                     <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/50 to-transparent text-white">
                       <div className="text-xs font-medium opacity-90">{product.source}</div>
